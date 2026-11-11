@@ -1,0 +1,159 @@
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bell, Eye, EyeOff, Globe, Lock, Plane, ScanLine, Snowflake, Store, Zap, Copy } from 'lucide-react';
+import { api, errMsg, type CardT, type Txn } from '../api';
+import { Cancelled, useAfter, usePin, useToast } from '../ctx';
+import { Bar, Button, Empty, Load, PageHead, Toggle, TxnRow } from '../ui';
+import { inr, pct } from '../lib';
+import { MoneySheet } from '../sheets';
+import { CARD_DESIGNS } from '../../shared/constants';
+
+interface CardData { card: CardT; holder: string; hasParent: boolean; holoUnlocked: boolean; pendingLimits: { id: string; title: string }[]; recent: Txn[]; requested?: string[] }
+type Reveal = { number: string; cvv: string; expiry: string };
+
+export function VirtualCard({ card, holder, reveal }: { card: Pick<CardT, 'design' | 'masked' | 'expiry' | 'frozen' | 'parentLocked'>; holder: string; reveal?: Reveal | null }) {
+  const d = CARD_DESIGNS.find((x) => x.key === card.design) ?? CARD_DESIGNS[0];
+  const off = card.frozen || card.parentLocked;
+  return (
+    <div className="vcard-wrap">
+      <div className={`vcard ${off ? 'frozen' : ''}`} style={{ background: d.bg, color: d.ink }} role="img" aria-label={`LevelUp virtual card ending ${card.masked.slice(-4)}${off ? ', frozen' : ''}`}>
+        <div className="row between"><span className="brand" style={{ fontSize: 17, color: 'inherit' }}><Zap size={17} fill="currentColor" /> LevelUp</span><span className="tiny" style={{ fontWeight: 800, letterSpacing: '.14em', opacity: 0.85 }}>DEMO · PREPAID</span></div>
+        <div className="chip-ic" aria-hidden />
+        <div>
+          <div className="pan">{reveal ? reveal.number : card.masked}</div>
+          <div className="row between" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 650 }}>
+            <span className="truncate" style={{ textTransform: 'uppercase', letterSpacing: '.08em' }}>{holder}</span>
+            <span className="row" style={{ gap: 14 }}><span>EXP {card.expiry}</span><span>CVV {reveal ? reveal.cvv : '•••'}</span></span>
+          </div>
+        </div>
+        {off && <div className="frost">{card.parentLocked ? <span className="row"><Lock size={18} /> LOCKED BY PARENT</span> : <span className="row"><Snowflake size={18} /> FROZEN</span>}</div>}
+      </div>
+    </div>
+  );
+}
+
+function LimitRow({ label, value, used, max, onSave, hasParent }: { label: string; value: number; used?: number; max: number; onSave: (v: number) => Promise<void>; hasParent: boolean }) {
+  const [v, setV] = useState(value / 100);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setV(value / 100), [value]);
+  const dirty = v * 100 !== value, raising = v * 100 > value;
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      <div className="row between"><label className="label" htmlFor={`lim-${label}`}>{label}</label><b className="num">{inr(v * 100)}</b></div>
+      <input id={`lim-${label}`} type="range" min={100} max={max} step={100} value={v} onChange={(e) => setV(Number(e.target.value))} aria-valuetext={inr(v * 100)} />
+      {used !== undefined && <><Bar value={pct(used, value)} tone={used > value * 0.85 ? 'warn' : 'green'} label={`${label} used`} /><div className="tiny muted">{inr(used)} used of {inr(value)}</div></>}
+      {dirty && <div className="row"><Button size="sm" loading={busy} onClick={async () => { setBusy(true); await onSave(v * 100); setBusy(false); }}>{raising && hasParent ? 'Ask parent to raise' : 'Save limit'}</Button><Button size="sm" variant="ghost" onClick={() => setV(value / 100)}>Reset</Button></div>}
+    </div>
+  );
+}
+
+export function Cards() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ['card'], queryFn: () => api<CardData>('/card') });
+  const toast = useToast(), withPin = usePin(), after = useAfter();
+  const [reveal, setReveal] = useState<Reveal | null>(null);
+  const [pay, setPay] = useState(false);
+  const [left, setLeft] = useState(0);
+
+  // Revealed details hide themselves again after 30 seconds.
+  useEffect(() => {
+    if (!reveal) return;
+    setLeft(30);
+    const t = setInterval(() => setLeft((s) => { if (s <= 1) { setReveal(null); return 0; } return s - 1; }), 1000);
+    return () => clearInterval(t);
+  }, [reveal]);
+
+  async function patch(body: Partial<Record<keyof CardT | 'design', unknown>>, msg?: string) {
+    const prev = qc.getQueryData<CardData>(['card']);
+    if (prev) qc.setQueryData(['card'], { ...prev, card: { ...prev.card, ...body } }); // optimistic
+    try {
+      const r = await api<CardData & { badges: any[] }>('/card', { method: 'PATCH', body });
+      qc.setQueryData(['card'], r);
+      after({ badges: r.badges });
+      if (r.requested?.length) toast({ kind: 'ok', emoji: '📨', text: 'Sent to your parent for approval', sub: `Raise ${r.requested.join(', ')} limit` });
+      else if (msg) toast({ kind: 'ok', text: msg });
+    } catch (e) { if (prev) qc.setQueryData(['card'], prev); toast({ kind: 'error', text: errMsg(e) }); }
+  }
+  async function doReveal() {
+    if (reveal) return setReveal(null);
+    try { setReveal(await withPin('Reveal card details', (pin) => api<Reveal>('/card/reveal', { body: { pin } }))); }
+    catch (e) { if (!(e instanceof Cancelled)) toast({ kind: 'error', text: errMsg(e) }); }
+  }
+
+  return (
+    <div className="page">
+      <PageHead title="Card" right={<span className="demo-flag">Demo card</span>} />
+      <Load q={q}>{({ card, holder, hasParent, holoUnlocked, pendingLimits, recent }) => (
+        <div className="cols">
+          <div className="stack">
+            <VirtualCard card={card} holder={holder} reveal={reveal} />
+            {reveal && <p className="small muted" style={{ textAlign: 'center' }} role="status">Demo details shown. Hiding in {left}s.
+              <button className="link" style={{ marginLeft: 8 }} onClick={() => { navigator.clipboard?.writeText(reveal.number.replace(/ /g, '')); toast({ kind: 'ok', text: 'Demo number copied' }); }}><Copy size={12} /> Copy</button></p>}
+
+            <nav className="actions" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }} aria-label="Card actions">
+              <button className={`action ${card.frozen ? 'hot' : ''}`} onClick={() => patch({ frozen: !card.frozen })} disabled={card.parentLocked} aria-pressed={card.frozen}>
+                <span className="ico"><Snowflake size={21} /></span>{card.frozen ? 'Unfreeze' : 'Freeze'}</button>
+              <button className="action" onClick={doReveal} aria-pressed={!!reveal}><span className="ico">{reveal ? <EyeOff size={21} /> : <Eye size={21} />}</span>{reveal ? 'Hide' : 'Details'}</button>
+              <button className="action" onClick={() => setPay(true)}><span className="ico"><ScanLine size={21} /></span>Test pay</button>
+            </nav>
+            {card.parentLocked && <div className="notice" role="status"><Lock size={16} /><span>Your parent has locked this card. Payments are paused until they unlock it.</span></div>}
+
+            <section className="card" aria-labelledby="c-design">
+              <div className="section-head"><h3 id="c-design">Card design</h3><span className="small muted">{CARD_DESIGNS.find((d) => d.key === card.design)?.label}</span></div>
+              <div className="chips scroll" role="group" aria-label="Choose a card design" style={{ padding: '4px 18px' }}>
+                {CARD_DESIGNS.map((d) => {
+                  const locked = d.key === 'holo' && !holoUnlocked;
+                  return <button key={d.key} className="swatch" style={{ background: d.bg, opacity: locked ? 0.55 : 1 }} aria-pressed={card.design === d.key} aria-label={`${d.label}${locked ? ' (locked, unlock in the reward store)' : ''}`} title={d.label}
+                    onClick={() => (locked ? toast({ kind: 'ok', emoji: '🪩', text: 'Holo is a reward skin', sub: 'Unlock it for 500 coins in Rewards → Store.' }) : patch({ design: d.key }))}>{locked && <Lock size={14} color="#fff" />}</button>;
+                })}
+              </div>
+            </section>
+
+            <section className="card" aria-labelledby="c-recent">
+              <div className="section-head"><h3 id="c-recent">Card payments</h3></div>
+              {recent.length ? <div className="list">{recent.map((t) => <TxnRow key={t.id} t={t} />)}</div> : <Empty emoji="💳" title="No card payments yet" body="Try a test payment to see your controls in action." />}
+            </section>
+          </div>
+
+          <div className="stack">
+            <section className="card" aria-labelledby="c-ctrl">
+              <div className="section-head"><h3 id="c-ctrl">Payment controls</h3></div>
+              <div className="list">
+                {([
+                  ['onlineEnabled', 'Online payments', 'Apps and websites', Globe], ['instoreEnabled', 'In-store payments', 'Tap and scan at shops', Store],
+                  ['internationalEnabled', 'International use', 'Payments outside India', Plane], ['notifyTxn', 'Payment notifications', 'Get an alert for every payment', Bell],
+                ] as const).map(([key, label, sub, Icon]) => (
+                  <div className="item" key={key}>
+                    <div className="ico-sq"><Icon size={18} /></div>
+                    <div className="grow"><div style={{ fontWeight: 650 }}>{label}</div><div className="small muted">{sub}</div></div>
+                    <Toggle checked={card[key]} onChange={(v) => patch({ [key]: v })} label={label} />
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="card" aria-labelledby="c-lim">
+              <div className="section-head"><h3 id="c-lim">Spending limits</h3></div>
+              <div className="col" style={{ gap: 20 }}>
+                <LimitRow label="Per payment" value={card.perTxnLimit} max={10000} hasParent={hasParent} onSave={(v) => patch({ perTxnLimit: v }, 'Limit updated')} />
+                <LimitRow label="Daily" value={card.dailyLimit} used={card.usage.today} max={15000} hasParent={hasParent} onSave={(v) => patch({ dailyLimit: v }, 'Limit updated')} />
+                <LimitRow label="Monthly" value={card.monthlyLimit} used={card.usage.month} max={50000} hasParent={hasParent} onSave={(v) => patch({ monthlyLimit: v }, 'Limit updated')} />
+              </div>
+              {pendingLimits.length > 0 && <div className="col" style={{ marginTop: 14, gap: 6 }}>{pendingLimits.map((p) => <span key={p.id} className="badge-pill warn" style={{ alignSelf: 'flex-start' }}>⏳ {p.title} · awaiting parent</span>)}</div>}
+              <p className="hint" style={{ marginTop: 12 }}>{hasParent ? 'You can lower a limit instantly. Raising one asks your parent first.' : 'Limits apply to every card payment.'}</p>
+              {hasParent && (card.approvalThreshold > 0 || card.blockedCategories.length > 0) && (
+                <div className="col" style={{ marginTop: 12, gap: 6 }}>
+                  <div className="up">Set by your parent</div>
+                  {card.approvalThreshold > 0 && <span className="small t2">Payments over {inr(card.approvalThreshold)} need approval.</span>}
+                  {card.blockedCategories.length > 0 && <span className="small t2">Blocked: {card.blockedCategories.join(', ')}.</span>}
+                </div>
+              )}
+            </section>
+            <div className="notice"><span>This is a demo card with a non-issuable number. It can't be used anywhere outside this prototype. A live LevelUp card would be issued by a licensed partner.</span></div>
+          </div>
+        </div>
+      )}</Load>
+      {pay && <MoneySheet kind="pay" onClose={() => setPay(false)} />}
+    </div>
+  );
+}
