@@ -62,10 +62,10 @@ export function Wallet() {
                 </div>
               </section>
               <nav className="actions" aria-label="Wallet actions">
-                <button className="action hot" onClick={() => setSheet('add')}><span className="ico"><Plus size={22} /></span>Add</button>
+                <button className="action" onClick={() => setSheet('add')}><span className="ico"><Plus size={24} /></span>add money</button>
                 <button className="action" onClick={() => setSheet('send')}><span className="ico"><Send size={20} /></span>Send</button>
                 <button className="action" onClick={() => setSheet('request')}><span className="ico"><HandCoins size={21} /></span>Request</button>
-                <button className="action" onClick={() => setSheet('pay')}><span className="ico"><ScanLine size={21} /></span>Pay</button>
+                <button className="action" onClick={() => setSheet('pay')}><span className="ico"><ScanLine size={21} /></span>scan &amp; pay</button>
               </nav>
 
               {d.requests.length > 0 && (

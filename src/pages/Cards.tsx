@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Eye, EyeOff, Globe, Lock, Plane, ScanLine, Snowflake, Store, Zap, Copy } from 'lucide-react';
+import { Bell, Eye, EyeOff, Globe, Lock, Plane, ScanLine, Snowflake, Store } from 'lucide-react';
+import { CardFan, designOf } from '../cardstack';
 import { api, errMsg, type CardT, type Txn } from '../api';
 import { Cancelled, useAfter, usePin, useToast } from '../ctx';
 import { Bar, Button, Empty, Load, PageHead, Toggle, TxnRow } from '../ui';
@@ -10,27 +11,6 @@ import { CARD_DESIGNS } from '../../shared/constants';
 
 interface CardData { card: CardT; holder: string; hasParent: boolean; holoUnlocked: boolean; pendingLimits: { id: string; title: string }[]; recent: Txn[]; requested?: string[] }
 type Reveal = { number: string; cvv: string; expiry: string };
-
-export function VirtualCard({ card, holder, reveal }: { card: Pick<CardT, 'design' | 'masked' | 'expiry' | 'frozen' | 'parentLocked'>; holder: string; reveal?: Reveal | null }) {
-  const d = CARD_DESIGNS.find((x) => x.key === card.design) ?? CARD_DESIGNS[0];
-  const off = card.frozen || card.parentLocked;
-  return (
-    <div className="vcard-wrap">
-      <div className={`vcard ${off ? 'frozen' : ''}`} style={{ background: d.bg, color: d.ink }} role="img" aria-label={`LevelUp virtual card ending ${card.masked.slice(-4)}${off ? ', frozen' : ''}`}>
-        <div className="row between"><span className="brand" style={{ fontSize: 17, color: 'inherit' }}><Zap size={17} fill="currentColor" /> LevelUp</span><span className="tiny" style={{ fontWeight: 800, letterSpacing: '.14em', opacity: 0.85 }}>DEMO · PREPAID</span></div>
-        <div className="chip-ic" aria-hidden />
-        <div>
-          <div className="pan">{reveal ? reveal.number : card.masked}</div>
-          <div className="row between" style={{ marginTop: 10, fontSize: 12.5, fontWeight: 650 }}>
-            <span className="truncate" style={{ textTransform: 'uppercase', letterSpacing: '.08em' }}>{holder}</span>
-            <span className="row" style={{ gap: 14 }}><span>EXP {card.expiry}</span><span>CVV {reveal ? reveal.cvv : '•••'}</span></span>
-          </div>
-        </div>
-        {off && <div className="frost">{card.parentLocked ? <span className="row"><Lock size={18} /> LOCKED BY PARENT</span> : <span className="row"><Snowflake size={18} /> FROZEN</span>}</div>}
-      </div>
-    </div>
-  );
-}
 
 function LimitRow({ label, value, used, max, onSave, hasParent }: { label: string; value: number; used?: number; max: number; onSave: (v: number) => Promise<void>; hasParent: boolean }) {
   const [v, setV] = useState(value / 100);
@@ -86,12 +66,38 @@ export function Cards() {
       <Load q={q}>{({ card, holder, hasParent, holoUnlocked, pendingLimits, recent }) => (
         <div className="cols">
           <div className="stack">
-            <VirtualCard card={card} holder={holder} reveal={reveal} />
-            {reveal && <p className="small muted" style={{ textAlign: 'center' }} role="status">Demo details shown. Hiding in {left}s.
-              <button className="link" style={{ marginLeft: 8 }} onClick={() => { navigator.clipboard?.writeText(reveal.number.replace(/ /g, '')); toast({ kind: 'ok', text: 'Demo number copied' }); }}><Copy size={12} /> Copy</button></p>}
+            {(() => {
+              const usable = CARD_DESIGNS.filter((x) => x.key !== 'holo' || holoUnlocked);
+              const i = Math.max(0, usable.findIndex((x) => x.key === card.design));
+              const prev = usable[(i + usable.length - 1) % usable.length], next = usable[(i + 1) % usable.length], cur = designOf(card.design);
+              const off = card.frozen || card.parentLocked;
+              return (
+                <section className="hero" aria-label="Your card">
+                  <div className="balance" style={{ fontSize: 'clamp(30px, 9vw, 40px)' }}>{inr(card.usage.month)}</div>
+                  <div className="sub" style={{ marginTop: 4 }}>spent this month, <span className="green">{inr(Math.max(0, card.monthlyLimit - card.usage.month))}</span> of limit left</div>
+                  <CardFan
+                    front={{ bg: cur.bg, ink: cur.ink, name: holder, sub: `XXXX ${card.last4}`, label: `LevelUp demo card ending ${card.last4}, ${cur.label} design${off ? ', frozen' : ''}`, off }}
+                    left={{ bg: prev.bg, ink: prev.ink, name: prev.label, sub: 'tap to use', onClick: () => patch({ design: prev.key }), label: `Switch to ${prev.label} design` }}
+                    right={{ bg: next.bg, ink: next.ink, name: next.label, sub: 'tap to use', onClick: () => patch({ design: next.key }), label: `Switch to ${next.label} design` }}
+                    note={card.parentLocked ? <><Lock size={14} /> locked by parent</> : card.frozen ? <><Snowflake size={14} /> frozen</> : undefined}
+                    tab={<span className="tiny" style={{ fontWeight: 700, letterSpacing: '.08em', color: '#8a8a8a' }}>DEMO · EXP {card.expiry}</span>} />
+                </section>
+              );
+            })()}
+            {reveal && (
+              <div className="card tight" role="status">
+                <dl className="row between" style={{ margin: 0, gap: 16 }}>
+                  <div><dt className="tiny muted">demo number</dt><dd className="num" style={{ margin: 0, fontWeight: 650, letterSpacing: '.06em' }}>{reveal.number}</dd></div>
+                  <div><dt className="tiny muted">exp</dt><dd className="num" style={{ margin: 0, fontWeight: 650 }}>{reveal.expiry}</dd></div>
+                  <div><dt className="tiny muted">cvv</dt><dd className="num" style={{ margin: 0, fontWeight: 650 }}>{reveal.cvv}</dd></div>
+                </dl>
+                <p className="tiny muted" style={{ marginTop: 8 }}>Not a real card number. Hiding in {left}s.
+                  <button className="link" style={{ marginLeft: 8 }} onClick={() => { navigator.clipboard?.writeText(reveal.number.replace(/ /g, '')); toast({ kind: 'ok', text: 'Demo number copied' }); }}>copy</button></p>
+              </div>
+            )}
 
             <nav className="actions" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }} aria-label="Card actions">
-              <button className={`action ${card.frozen ? 'hot' : ''}`} onClick={() => patch({ frozen: !card.frozen })} disabled={card.parentLocked} aria-pressed={card.frozen}>
+              <button className="action" onClick={() => patch({ frozen: !card.frozen })} disabled={card.parentLocked} aria-pressed={card.frozen}>
                 <span className="ico"><Snowflake size={21} /></span>{card.frozen ? 'Unfreeze' : 'Freeze'}</button>
               <button className="action" onClick={doReveal} aria-pressed={!!reveal}><span className="ico">{reveal ? <EyeOff size={21} /> : <Eye size={21} />}</span>{reveal ? 'Hide' : 'Details'}</button>
               <button className="action" onClick={() => setPay(true)}><span className="ico"><ScanLine size={21} /></span>Test pay</button>

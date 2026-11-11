@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Flame, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 import { Brand } from '../shell';
 import { DemoButtons } from './Auth';
-import { DISCLAIMER } from '../../shared/constants';
+import { CARD_DESIGNS, DISCLAIMER } from '../../shared/constants';
+import { CardFan } from '../cardstack';
 
 const FEATURES = [
   { em: '🎮', title: 'Money that plays like a game', body: 'Earn XP for real habits. Keep streaks, clear weekly missions, climb your league and unlock rewards.' },
@@ -41,11 +42,15 @@ export function Landing() {
 
         <div className="phone" aria-hidden>
           <div className="screen">
-            <div className="row between"><span className="small muted">Good evening</span><span className="badge-pill green"><Flame size={12} /> 6 day streak</span></div>
-            <div className="hero" style={{ padding: 16 }}>
-              <div className="sub">Available balance</div>
+            <div className="pills"><span className="pill"><span className="em">🪙</span>895</span><span className="pill"><span className="em">⚡</span>2,410</span><span className="pill"><span className="em">🔥</span>6</span></div>
+            <div className="hero" style={{ padding: 0 }}>
               <div className="balance" style={{ fontSize: 34 }}>₹12,264</div>
-              <div className="row" style={{ marginTop: 10, gap: 8 }}><span className="badge-pill purple"><Zap size={12} /> Level 6 · Pro</span></div>
+              <div className="sub">used 16.5% of budget, <span className="green">₹6,677</span> left</div>
+              <div style={{ transform: 'scale(.8)', transformOrigin: '50% 0', height: 236 }}>
+                <CardFan front={{ bg: CARD_DESIGNS[0].bg, ink: CARD_DESIGNS[0].ink, name: 'LevelUp', sub: 'XXXX 0123', label: '' }}
+                  left={{ bg: CARD_DESIGNS[2].bg, ink: CARD_DESIGNS[2].ink, name: 'Gaming PC', label: '' }} right={{ bg: CARD_DESIGNS[1].bg, ink: CARD_DESIGNS[1].ink, name: 'Goa trip', label: '' }}
+                  tab={<><Zap size={16} fill="#fff" strokeWidth={0} /><span>🖥️</span><span>🏖️</span></>} />
+              </div>
             </div>
             <div className="card tight">
               <div className="row between small"><b>Save ₹500 this week</b><span className="green">+120 XP</span></div>

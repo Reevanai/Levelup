@@ -20,12 +20,12 @@ export const CATEGORIES: { key: CategoryKey; label: string; color: string; emoji
 export const CATEGORY_KEYS = CATEGORIES.map((c) => c.key) as [CategoryKey, ...CategoryKey[]];
 
 export const CARD_DESIGNS = [
-  { key: 'nebula', label: 'Nebula', bg: 'linear-gradient(135deg,#2a1065 0%,#7c3aed 55%,#c084fc 100%)', ink: '#ffffff' },
-  { key: 'matrix', label: 'Matrix', bg: 'linear-gradient(135deg,#03150c 0%,#0b5d37 55%,#39ff9c 130%)', ink: '#eafff3' },
-  { key: 'obsidian', label: 'Obsidian', bg: 'linear-gradient(135deg,#050507 0%,#1b1b25 60%,#34344a 100%)', ink: '#f4f4f8' },
-  { key: 'aurora', label: 'Aurora', bg: 'linear-gradient(120deg,#5b21b6 0%,#2563eb 50%,#22d3a6 100%)', ink: '#ffffff' },
-  { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(135deg,#4a044e 0%,#be185d 55%,#fb923c 100%)', ink: '#ffffff' },
-  { key: 'holo', label: 'Holo', bg: 'linear-gradient(115deg,#7c3aed 0%,#22d3ee 28%,#39ff9c 50%,#facc15 72%,#f472b6 100%)', ink: '#0b0b12' },
+  { key: 'aurora', label: 'Aurora', bg: 'linear-gradient(155deg,#a3f06a 0%,#3fe0c5 38%,#39b8f5 70%,#3f8bf0 100%)', ink: '#06121a' },
+  { key: 'nebula', label: 'Nebula', bg: 'linear-gradient(160deg,#e879f9 0%,#a855f7 45%,#6d28d9 100%)', ink: '#ffffff' },
+  { key: 'sunset', label: 'Sunset', bg: 'linear-gradient(160deg,#ffc24b 0%,#ff8a3d 50%,#f9603f 100%)', ink: '#1a0c02' },
+  { key: 'matrix', label: 'Matrix', bg: 'linear-gradient(160deg,#39ff9c 0%,#14c97a 50%,#0a7d54 100%)', ink: '#03150c' },
+  { key: 'obsidian', label: 'Obsidian', bg: 'linear-gradient(160deg,#3a3a44 0%,#1c1c22 55%,#0c0c10 100%)', ink: '#f4f4f8' },
+  { key: 'holo', label: 'Holo', bg: 'linear-gradient(150deg,#f472b6 0%,#a78bfa 25%,#38bdf8 50%,#39ff9c 75%,#facc15 100%)', ink: '#0b0b12' },
 ] as const;
 
 export const LEVEL_TITLES = ['Rookie', 'Saver', 'Planner', 'Hustler', 'Strategist', 'Pro', 'Elite', 'Master', 'Legend'];

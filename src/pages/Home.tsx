@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, ChevronRight, Eye, EyeOff, Flame, HandCoins, Plus, ScanLine, Send, Snowflake, Sparkles, Zap } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Flame, HandCoins, Plus, ScanLine, Send, Settings as Cog, Snowflake, Sparkles, Zap } from 'lucide-react';
+import { CardFan, designOf, tint, type Face } from '../cardstack';
 import { api, type Cat, type Health, type Insight, type Level, type Me, type Mission, type Txn, type Vault } from '../api';
 import { useAuth, useMe } from '../ctx';
 import { Bar, Empty, Load, Money, Private, Ring, TxnRow } from '../ui';
 import { Bars, SERIES } from '../charts';
-import { greeting, inr, pct } from '../lib';
+import { inr, pct } from '../lib';
 import { Bell2 } from '../shell';
 import { MoneySheet, type MoneySheetKind } from '../sheets';
 
 interface Dash {
   balance: number; monthSpent: number; monthReceived: number; monthSaved: number; weekSpent: number; budget: number; savingsTarget: number; recent: Txn[];
   vaults: Vault[]; totalSaved: number; totalTarget: number; level: Level; coins: number; streak: number; checkedInToday: boolean; health: Health;
-  daily: { label: string; spent: number }[]; categories: Cat[]; missions: Mission[]; claimable: number; topInsight: Insight | null; cardFrozen: boolean;
+  daily: { label: string; spent: number }[]; categories: Cat[]; missions: Mission[]; claimable: number; topInsight: Insight | null; cardFrozen: boolean; card: { design: string; last4: string };
 }
 
 export function Home() {
@@ -26,36 +27,48 @@ export function Home() {
 
   return (
     <div className="page">
-      <div className="topbar">
-        <Link to="/app/profile" className="row grow" aria-label="Your profile">
-          <span className="avatar" aria-hidden>{me.avatar}</span>
-          <span className="grow"><span className="small muted" style={{ display: 'block' }}>{greeting()},</span><span className="truncate" style={{ fontFamily: 'var(--display)', fontWeight: 650, fontSize: 18, display: 'block' }}>{me.name.split(' ')[0]}</span></span>
-        </Link>
-        <span className="demo-flag">Demo</span>
-        <Bell2 base="/app" />
+      <div className="topbar" style={{ paddingBottom: 6 }}>
+        <div className="pills" aria-label="Your rewards">
+          <Link to="/app/rewards" className="pill" aria-label={`${me.coins} coins`}><span className="em" aria-hidden>🪙</span>{me.coins.toLocaleString('en-IN')}</Link>
+          <Link to="/app/rewards" className="pill" aria-label={`${me.level.xp} XP, level ${me.level.level}`}><span className="em" aria-hidden>⚡</span>{me.level.xp.toLocaleString('en-IN')}</Link>
+          <Link to="/app/rewards" className="pill" aria-label={`${me.streak} day streak`}><span className="em" aria-hidden>🔥</span>{me.streak}</Link>
+        </div>
+        <div className="row" style={{ gap: 0 }}>
+          <Bell2 base="/app" />
+          <Link to="/app/settings" className="icon-btn" aria-label="Settings"><Cog size={20} /></Link>
+        </div>
       </div>
 
-      <Load q={q}>{(d) => (
+      <Load q={q}>{(d) => {
+        const left = Math.max(0, d.budget - d.monthSpent);
+        const design = designOf(d.card.design);
+        const side = (v?: Vault): Face => v
+          ? { bg: tint(v.color), ink: '#0b0b0b', name: v.name, sub: `${pct(v.saved, v.target)}% saved`, mark: <span style={{ fontSize: 22 }}>{v.emoji}</span>, to: `/app/vaults/${v.id}`, label: `${v.name} vault, ${pct(v.saved, v.target)}% saved` }
+          : { bg: 'linear-gradient(160deg,#2a2a2a,#141414)', ink: '#fff', name: 'New vault', sub: 'start a goal', mark: <Plus size={22} />, to: '/app/vaults', label: 'Create a savings vault' };
+        return (
         <div className="cols">
           <div className="stack">
             <section className="hero" aria-label="Balance">
-              <div className="row between">
-                <span className="sub">Available balance · simulated</span>
-                <button className="icon-btn" style={{ width: 36, height: 36, background: 'rgba(255,255,255,.12)' }} onClick={toggleHide} aria-label={hidden ? 'Show balance' : 'Hide balance'} aria-pressed={hidden}>{hidden ? <EyeOff size={17} /> : <Eye size={17} />}</button>
+              <button className="balance" onClick={toggleHide} aria-label={hidden ? 'Show balance' : 'Hide balance'} aria-pressed={hidden} style={{ display: 'block', margin: '0 auto' }}><Private value={d.balance} /></button>
+              <div className="sub" style={{ marginTop: 4 }}>
+                used {d.budget ? ((d.monthSpent / d.budget) * 100).toFixed(1) : '0'}% of budget, <span className="green">{inr(left)}</span> left · <span>simulated</span>
               </div>
-              <div className="balance"><Private value={d.balance} /></div>
-              <div className="row wrap" style={{ marginTop: 12, gap: 8 }}>
-                <Link to="/app/rewards" className="badge-pill purple" style={{ background: 'rgba(0,0,0,.28)' }}><Zap size={12} /> Level {d.level.level} · {d.level.title}</Link>
-                <Link to="/app/rewards" className="badge-pill" style={{ background: 'rgba(0,0,0,.28)', color: '#ffd9a8' }}><Flame size={12} /> {d.streak} day streak</Link>
-                {d.cardFrozen && <Link to="/app/cards" className="badge-pill" style={{ background: 'rgba(0,0,0,.28)', color: '#bfe6ff' }}><Snowflake size={12} /> Card frozen</Link>}
-              </div>
+              <CardFan
+                front={{ bg: design.bg, ink: design.ink, name: 'LevelUp', sub: `XXXX ${d.card.last4}`, to: '/app/cards', label: `Your LevelUp demo card ending ${d.card.last4}`, off: d.cardFrozen }}
+                left={side(d.vaults[0])} right={side(d.vaults[1])}
+                note={d.cardFrozen ? <><Snowflake size={14} /> card frozen</> : undefined}
+                tab={<>
+                  <Link to="/app/cards" aria-label="Card"><Zap size={17} fill="#fff" strokeWidth={0} /></Link>
+                  {d.vaults.slice(0, 3).map((v) => <Link key={v.id} to={`/app/vaults/${v.id}`} aria-label={`${v.name} vault`}>{v.emoji}</Link>)}
+                  {d.vaults.length === 0 && <Link to="/app/vaults" aria-label="Create a vault">🔐</Link>}
+                </>} />
             </section>
 
             <nav className="actions" aria-label="Quick actions">
-              <button className="action hot" onClick={() => setSheet('add')}><span className="ico"><Plus size={22} /></span>Add</button>
-              <button className="action" onClick={() => setSheet('send')}><span className="ico"><Send size={20} /></span>Send</button>
-              <button className="action" onClick={() => setSheet('request')}><span className="ico"><HandCoins size={21} /></span>Request</button>
-              <button className="action" onClick={() => setSheet('pay')}><span className="ico"><ScanLine size={21} /></span>Pay</button>
+              <button className="action" onClick={() => setSheet('pay')}><span className="ico"><ScanLine size={24} /></span>scan &amp; pay</button>
+              <button className="action" onClick={() => setSheet('add')}><span className="ico"><Plus size={24} /></span>add money</button>
+              <button className="action" onClick={() => setSheet('send')}><span className="ico"><Send size={22} /></span>send</button>
+              <button className="action" onClick={() => setSheet('request')}><span className="ico"><HandCoins size={23} /></span>request</button>
             </nav>
 
             <div className="grid2">
@@ -149,7 +162,8 @@ export function Home() {
             )}
           </div>
         </div>
-      )}</Load>
+        );
+      }}</Load>
       {sheet && <MoneySheet kind={sheet} onClose={() => setSheet(null)} />}
     </div>
   );

@@ -43,7 +43,7 @@ teen.get('/dashboard', (req, res) => {
     health: healthScore(u), daily: dailySpend(u.id, 7), categories: categoryBreakdown(u.id, m0),
     missions: missions.filter((m) => m.status !== 'claimed').slice(0, 3), claimable: missions.filter((m) => m.status === 'claimable').length,
     topInsight: buildInsights(u).find((i) => i.tone === 'warn') ?? buildInsights(u)[0] ?? null,
-    cardFrozen: !!getCard(u.id).frozen || !!getCard(u.id).parent_locked,
+    cardFrozen: !!getCard(u.id).frozen || !!getCard(u.id).parent_locked, card: { design: getCard(u.id).design, last4: getCard(u.id).last4 },
   });
 });
 

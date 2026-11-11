@@ -45,7 +45,7 @@ The landing and sign-in pages have one-tap buttons for both. The teen account co
 
 - **Home**: balance, month spent and received, 7-day spending chart, recent activity, missions, vault progress, XP and level, financial health score.
 - **Wallet**: add, send, request and pay flows; searchable, filterable history; category breakdown; receipts you can share or print.
-- **Card**: six designs (one unlocked through rewards), freeze, PIN-gated reveal that hides itself after 30 seconds, online / in-store / international toggles, per-payment, daily and monthly limits, and a test checkout to see the controls work.
+- **Card**: a fanned card stack with six designs (one unlocked through rewards), freeze, PIN-gated reveal that hides itself after 30 seconds, online / in-store / international toggles, per-payment, daily and monthly limits, and a test checkout to see the controls work.
 - **Rewards**: XP and levels, daily check-in streaks, weekly and monthly missions, savings challenges, badges, a league table, and a coin store.
 - **Vaults**: goals with a target, date, progress ring, a weekly plan to hit the date, and deposit history.
 - **Money coach**: spending insights, things worth cutting, a suggested savings target, monthly report cards, a question box, and financial-literacy quizzes.
@@ -75,7 +75,7 @@ server/
 src/         React app (pages, UI kit, charts, sheets, contexts)
 ```
 
-- **Frontend**: React, TypeScript, Vite, React Router, TanStack Query. Hand-written CSS design system and SVG charts, no UI framework.
+- **Frontend**: React, TypeScript, Vite, React Router, TanStack Query. Hand-written CSS design system (flat black, lowercase labels, pill counters, fanned card stack, round outlined actions) and SVG charts, no UI framework.
 - **Backend**: Express, Zod validation, SQLite. All amounts are integer paise.
 - **Auth**: scrypt-hashed passwords; random session tokens stored hashed, sent as an `HttpOnly`, `SameSite=Lax` cookie; a custom-header check on every write; login rate limiting.
 - **Roles**: `teen` and `parent`. Guards are enforced in the API, and every parent route checks the child is linked to that parent.
